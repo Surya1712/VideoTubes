@@ -1,6 +1,5 @@
 import axios from "axios";
 import apiClient from "./api.js"; // centralized axios instance
-import { getWatchHistory } from "../../../Testing-Backend-main/src/controllers/user.controller.js";
 
 const API_BASE_URL =
   import.meta.env.VITE_APP_API_URI || "http://localhost:8000/api/v1";
@@ -50,7 +49,12 @@ const refreshAccessToken = async () => {
     // Clear tokens and redirect to login
     localStorage.removeItem("accessToken");
     localStorage.removeItem("refreshToken");
-    window.location.href = "/login";
+
+    // Only redirect if not already on login/register pages
+    const currentPath = window.location.pathname;
+    if (!currentPath.includes("/login") && !currentPath.includes("/register")) {
+      window.location.href = "/login";
+    }
     throw error;
   }
 };
@@ -119,6 +123,8 @@ const videoService = {
       console.log("Fetching videos with params:", params);
       const response = await apiClient.get("/videos", { params });
 
+      console.log("Raw API response:", response.data);
+
       // Handle different response structures
       let videos = [];
       if (response.data?.data?.docs) {
@@ -132,7 +138,21 @@ const videoService = {
         videos = response.data;
       }
 
+      // Ensure each video has proper owner data
+      videos = videos.map((video) => ({
+        ...video,
+        owner: video.owner ||
+          video.ownerDetails || {
+            fullName: "Unknown Creator",
+            username: "unknown",
+            avatar: null,
+            subscribersCount: 0,
+          },
+      }));
+
       console.log(`✅ Fetched ${videos.length} videos`);
+      console.log("First video structure:", videos[0]);
+
       return {
         data: videos,
         totalPages: response.data?.data?.totalPages || 1,
@@ -141,6 +161,7 @@ const videoService = {
         hasPrevPage: response.data?.data?.hasPrevPage || false,
       };
     } catch (error) {
+      console.error("getAllVideos error:", error);
       handleApiError(error, "Failed to fetch videos");
     }
   },
@@ -167,14 +188,13 @@ const videoService = {
         headers: {
           "Content-Type": "multipart/form-data",
         },
-        // Optional: Add progress tracking
         onUploadProgress: (progressEvent) => {
           const percentCompleted = Math.round(
             (progressEvent.loaded * 100) / progressEvent.total
           );
           console.log(`Upload progress: ${percentCompleted}%`);
           if (onProgress) {
-            onprogress(percentCompleted);
+            onProgress(percentCompleted);
           }
         },
       });
@@ -267,19 +287,20 @@ const videoService = {
   },
 
   // Get user's videos (for dashboard/manage videos)
-  getUserVideos: async (params = {}) => {
+  getUserVideos: async (userId, params = {}) => {
     try {
       console.log(
         "Fetching user videos for userId:",
         userId,
-        "with params",
+        "with params:",
         params
       );
 
       // If userId is provided, use the general videos endpoint with userId filter
       // Otherwise use the user-specific endpoint (requires auth)
-      const endpoint = userid ? `/videos` : `/videos/user`;
-      const requestParams = userid ? { ...params, userid } : params;
+      const endpoint = userId ? `/videos` : `/videos/user`;
+      const requestParams = userId ? { ...params, userId } : params;
+
       const response = await apiClient.get(endpoint, { params: requestParams });
 
       // Handle paginated response
@@ -310,7 +331,6 @@ const videoService = {
       const searchParams = { query: query.trim(), ...params };
       const response = await apiClient.get("/videos", { params: searchParams });
 
-      // const videos =  || response.data?.data || [];
       let videos = [];
       if (response.data?.data?.docs) {
         videos = response.data.data.docs;
@@ -319,49 +339,50 @@ const videoService = {
       } else if (Array.isArray(response.data)) {
         videos = response.data;
       }
+
       console.log(`✅ Found ${videos.length} videos for search: "${query}"`);
       return videos;
     } catch (error) {
       handleApiError(error, "Failed to search videos");
     }
   },
-};
 
-// Get watch history
-getWatchHistory: async () => {
-  try {
-    console.log("Fetching watch history...");
-    const response = await apiClient.get("users/watch-history");
+  // Get watch history
+  getWatchHistory: async () => {
+    try {
+      console.log("Fetching watch history...");
+      const response = await apiClient.get("/users/watch-history");
 
-    let videos = [];
-    if (Array.isArray(response.data?.data)) {
-      videos = response.data.data;
-    } else if (Array.isArray(response.data)) {
-      videos = response.data;
+      let videos = [];
+      if (Array.isArray(response.data?.data)) {
+        videos = response.data.data;
+      } else if (Array.isArray(response.data)) {
+        videos = response.data;
+      }
+
+      console.log(`✅ Fetched ${videos.length} videos from watch history`);
+      return videos;
+    } catch (error) {
+      handleApiError(error, "Failed to fetch watch history");
     }
+  },
 
-    console.log(`✅ Fetched ${videos.length} videos in watch history`);
-    return videos;
-  } catch (error) {
-    handleApiError(error, "Failed to fetch watch history");
-  }
-};
+  // Like video
+  likeVideo: async (videoId) => {
+    try {
+      if (!videoId) {
+        throw new Error("Video ID is required");
+      }
 
-//Likes video
-likeVideo: async (videoId) => {
-  try {
-    if (!videoId) {
-      throw new Error("Video ID is required");
+      console.log(`Toggling like for video: ${videoId}`);
+      const response = await apiClient.post(`/likes/toggle/v/${videoId}`);
+
+      console.log("✅ Like toggled successfully");
+      return response.data.data;
+    } catch (error) {
+      handleApiError(error, "Failed to toggle like");
     }
-
-    console.log(`Toggling like for video:${videoId}`);
-    const response = await apiClient.options(`/likes/toggle/v/${videoId}`);
-
-    console.log("✅ Like toggled successfully");
-    return response.data.data;
-  } catch (error) {
-    handleApiError(error, "Failed to toggle like");
-  }
+  },
 };
 
 // Debug logging

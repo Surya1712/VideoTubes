@@ -20,7 +20,7 @@ const Home = () => {
   const fetchVideos = async (page = 1) => {
     try {
       setLoading(true);
-      console.log("Fetching videos for home page...");
+      console.log("🎬 Fetching videos for home page...");
 
       // Fetch videos with pagination
       const response = await videoService.getAllVideos({
@@ -30,10 +30,20 @@ const Home = () => {
         sortType: "desc",
       });
 
-      console.log("Home page videos response:", response);
+      console.log("📦 Home page videos response:", response);
 
       // Extract videos from response
       const videoList = response?.data || [];
+      console.log("📹 Extracted video list:", videoList);
+      console.log("📊 Number of videos:", videoList.length);
+
+      // Log first video structure for debugging
+      if (videoList.length > 0) {
+        console.log("🔍 First video structure:", videoList[0]);
+        console.log("👤 First video owner:", videoList[0]?.owner);
+        console.log("📋 First video ownerDetails:", videoList[0]?.ownerDetails);
+      }
+
       setVideos(videoList);
 
       // Set pagination info
@@ -44,9 +54,9 @@ const Home = () => {
         hasPrevPage: response?.hasPrevPage || false,
       });
 
-      console.log(`Successfully loaded ${videoList.length} videos`);
+      console.log(`✅ Successfully loaded ${videoList.length} videos`);
     } catch (error) {
-      console.error("Error fetching videos:", error);
+      console.error("❌ Error fetching videos:", error);
       toast.error(error.message || "Failed to fetch videos");
       setVideos([]);
     } finally {
@@ -88,9 +98,39 @@ const Home = () => {
     }
   };
 
+  // Debug info display in development
+  const isDebug = import.meta.env.DEV;
+
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       <div className="max-w-7xl mx-auto p-6">
+        {/* Debug Info - Only show in development */}
+        {isDebug && (
+          <div className="mb-4 p-4 bg-yellow-100 dark:bg-yellow-900/20 border border-yellow-300 dark:border-yellow-700 rounded-lg">
+            <h4 className="font-semibold text-yellow-800 dark:text-yellow-200 mb-2">
+              Debug Info:
+            </h4>
+            <div className="text-sm text-yellow-700 dark:text-yellow-300 space-y-1">
+              <div>Videos loaded: {videos.length}</div>
+              <div>Loading: {loading ? "Yes" : "No"}</div>
+              <div>Current page: {pagination.currentPage}</div>
+              <div>Total pages: {pagination.totalPages}</div>
+              {videos.length > 0 && (
+                <div>
+                  <div>First video ID: {videos[0]?._id}</div>
+                  <div>
+                    First video has owner: {videos[0]?.owner ? "Yes" : "No"}
+                  </div>
+                  <div>
+                    First video has ownerDetails:{" "}
+                    {videos[0]?.ownerDetails ? "Yes" : "No"}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
