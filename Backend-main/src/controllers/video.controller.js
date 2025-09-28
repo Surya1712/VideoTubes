@@ -1,12 +1,12 @@
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiError } from "../utils/ApiError.js";
-import { ApiResponse } from "../utils/ApiResponse.js";
 import { Video } from "../models/video.model.js";
 import { User } from "../models/user.model.js";
-import { Like } from "../models/like.model.js";
 import { Comment } from "../models/comment.model.js";
 import { uploadOnCloudinary, deleteOnCloudinary } from "../utils/cloudinary.js";
+import { ApiResponse } from "../utils/ApiResponse.js";
 import mongoose, { isValidObjectId } from "mongoose";
+import { Like } from "../models/like.model.js";
 
 // ------------------ GET ALL VIDEOS ------------------
 const getAllVideos = asyncHandler(async (req, res) => {
@@ -14,7 +14,16 @@ const getAllVideos = asyncHandler(async (req, res) => {
 
   const pipeline = [];
 
-  // Search functionality
+  /**
+   * TODO: Setup Full-Text Search in MongoDB Atlas
+   *
+   * 1. Create a search index in MongoDB Atlas.
+   * 2. Add field mappings for `title` and `description`.
+   * 3. Field mappings define which fields are indexed for text search.
+   * 4. This improves performance by searching only in relevant fields.
+   * 5. Use the search index named: `search-videos`.
+   */
+
   if (query && query.trim()) {
     pipeline.push({
       $match: {
@@ -38,15 +47,18 @@ const getAllVideos = asyncHandler(async (req, res) => {
   // Only show published videos for general listing
   pipeline.push({ $match: { isPublished: true } });
 
-  // Sorting
+  //  Secure, Fast, and Clean Pipeline
+  //   Sorting options with whitelist validation
+
   const sortOptions = {};
   if (sortBy && ["createdAt", "views", "duration", "title"].includes(sortBy)) {
     sortOptions[sortBy] = sortType === "asc" ? 1 : -1;
   } else {
     sortOptions.createdAt = -1; // Default sort by newest first
   }
+
   pipeline.push({ $sort: sortOptions });
-  // Add lookup to get owner details
+  // Lookup owner details with minimal fields
   pipeline.push({
     $lookup: {
       from: "users",
@@ -57,20 +69,19 @@ const getAllVideos = asyncHandler(async (req, res) => {
         {
           $project: {
             username: 1,
-            avatar: 1,
-            fullName: 1,
+            "avatar.url": 1, // Expose only safe, required fields
           },
         },
       ],
     },
   });
 
-  // Unwind the ownerDetails array
+  // Unwind ownerDetails (one-to-one relation)
   pipeline.push({
     $unwind: "$ownerDetails",
   });
 
-  // Project the required fields
+  // Final projection (control output, improve performance)
   pipeline.push({
     $project: {
       title: 1,
@@ -80,7 +91,7 @@ const getAllVideos = asyncHandler(async (req, res) => {
       isPublished: 1,
       createdAt: 1,
       thumbnail: 1, // Corrected to fetch the thumbnail URL
-      owner: "$ownerDetails", // Expose the ownerDetails as 'owner'
+      owner: "$ownerDetails", // Expose the ownerDetails as 'owner' (Clean nested owner object)
     },
   });
 
@@ -99,6 +110,7 @@ const getAllVideos = asyncHandler(async (req, res) => {
 });
 
 // ------------------ PUBLISH VIDEO ------------------
+//  get video, upload to cloudinary, create video
 const publishAVideo = asyncHandler(async (req, res) => {
   const { title, description, isPublished } = req.body;
 
