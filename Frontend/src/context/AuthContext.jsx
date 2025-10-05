@@ -90,30 +90,29 @@ export const AuthProvider = ({ children }) => {
   const register = async (userData) => {
     try {
       setLoading(true);
-      const response = await authService.register(userData);
+      const backendPayLoad = await authService.register(userData);
 
       // Backend returns: { statusCode: 201, data: { user, accessToken, refreshToken }, message: "..." }
-      console.log(("full register response: ", response.data));
 
-      const userdataRes = response.data?.data?.user;
-      const accessToken = response.data?.data?.accessToken;
-      const refreshToken = response.data?.data?.refreshToken;
+      // console.log(("full register response: ", response.data));
+      console.log(("full register response: ", backendPayLoad));
 
-      if (userdataRes && accessToken && refreshToken) {
-        // const { user, accessToken, refreshToken } = response.data.data;
+      // const userdataRes = response.data?.data?.user;
+      // const accessToken = response.data?.data?.accessToken;
+      // const refreshToken = response.data?.data?.refreshToken;
+      const userdataRes = backendPayLoad?.data;
+      // ✅ Flexible parsing (backend may return data.user OR just data)
+
+      if (userdataRes) {
         setUser(userdataRes);
-        // ✅ Save tokens and user
         localStorage.setItem("user", JSON.stringify(userdataRes));
-        localStorage.setItem("accessToken", accessToken);
-        localStorage.setItem("refreshToken", refreshToken);
 
-        // setUser(user);
         console.log("✅ User registered successfully:", userdataRes);
-        // return response.data;
       } else {
+        console.warn("⚠️ No user object returned from server");
         throw new Error("Invalid response from server");
       }
-      return response.data;
+      return backendPayLoad;
     } catch (error) {
       console.error("Registration error in context:", error);
       throw error;

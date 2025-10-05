@@ -51,21 +51,12 @@ export const authService = {
   // Register user
   register: async (userData) => {
     try {
-      // const response = await apiClient.post("/users/register", userData, {
-      //   headers: {
-      //     "Content-Type": "multipart/form-data",
-      //   },
-      // });
-
       const response = await apiClient.post("/users/register", userData, {
         headers: {
           "Content-Type": "multipart/form-data",
         },
       });
-      // console.log("✅ Registration successful:", response.data);
-
-      // return response.data;
-      return response;
+      console.log("✅ Registration successful:", response.data);
 
       // // Store tokens if provided
       // if (response.data.data?.accessToken) {
@@ -80,12 +71,16 @@ export const authService = {
       //   localStorage.setItem("user", JSON.stringify(response.data.data.user));
       // }
 
-      // return response.data;
+      return response.data;
     } catch (error) {
-      // console.error(
-      //   "❌ Registration failed:",
-      //   error.response?.data || error.message
-      // );
+      console.error(
+        "❌ Registration failed:",
+        error.response?.data || error.message
+      );
+      // If backend sends HTML (500 page), wrap it into a JSON error
+      if (error.response?.data && typeof error.response.data === "string") {
+        throw new Error("Server Error (HTML response received)");
+      }
       throw new Error(error.response?.data?.message || "Registration failed");
     }
   },

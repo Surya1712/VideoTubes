@@ -139,67 +139,61 @@ const RegisterForm = () => {
     return Object.keys(newErrors).length === 0;
   };
 
-  // const handleSubmit = async (e) => {
-  //   e.preventDefault();
-  //   if (!validateForm()) return;
-
-  //   setLoading(true);
-
-  //   try {
-  //     // Create FormData for multipart/form-data
-  //     const formDataToSend = new FormData();
-  //     formDataToSend.append("username", formData.username);
-  //     formDataToSend.append("email", formData.email);
-  //     formDataToSend.append("fullName", formData.fullName);
-  //     formDataToSend.append("password", formData.password);
-
-  //     if (files.avatar) {
-  //       formDataToSend.append("avatar", files.avatar);
-  //     }
-
-  //     if (files.coverImage) {
-  //       formDataToSend.append("coverImage", files.coverImage);
-  //     }
-
-  //     // Call auth context register
-  //     await register(formDataToSend);
-
-  //     // Reset form
-  //     setFormData({
-  //       username: "",
-  //       email: "",
-  //       fullName: "",
-  //       password: "",
-  //       confirmPassword: "",
-  //     });
-  //     setFiles({ avatar: null, coverImage: null });
-  //     setPreviews({ avatar: null, coverImage: null });
-  //   } catch (error) {
-  //     console.error("Registration error:", error);
-  //     // Error handling is done in the auth context
-  //   } finally {
-  //     setLoading(false);
-  //   }
-  // };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!validateForm()) return;
 
-    const formDataToSend = new FormData();
-    formDataToSend.append("username", formData.username);
-    formDataToSend.append("email", formData.email);
-    formDataToSend.append("fullName", formData.fullName);
-    formDataToSend.append("password", formData.password);
-
-    // attach avatar file
-
-    if (formData.avatar) {
-      formDataToSend.append("avatar", formData.avatar);
-    }
+    // clear server error before submitting
+    setErrors((prev) => ({ ...prev, server: "" }));
+    setLoading(true);
     try {
+      const formDataToSend = new FormData();
+      formDataToSend.append("username", formData.username);
+      formDataToSend.append("email", formData.email);
+      formDataToSend.append("fullName", formData.fullName);
+      formDataToSend.append("password", formData.password);
+
+      // attach avatar file
+      if (files.avatar) {
+        formDataToSend.append("avatar", files.avatar);
+      }
+      if (files.coverImage) {
+        // Use the backend-expected key "coverImage"
+        formDataToSend.append("coverImage", files.coverImage);
+      }
+
+      // DEBUG: log FormData entries (keys and file info) to help troubleshoot server error
+      for (const entry of formDataToSend.entries()) {
+        const [key, value] = entry;
+        if (value instanceof File) {
+          console.log("FormData:", key, value.name, value.type, value.size);
+        } else {
+          console.log("FormData:", key, value);
+        }
+      }
+
+      // Call auth context register
       await register(formDataToSend);
+
+      // Reset form
+      setFormData({
+        username: "",
+        email: "",
+        fullName: "",
+        password: "",
+        confirmPassword: "",
+      });
+      setFiles({ avatar: null, coverImage: null });
+      setPreviews({ avatar: null, coverImage: null });
     } catch (error) {
-      console.log("Registration error:", error);
+      const serverMessage =
+        error.message || "An unexpected registration error occurred.";
+      console.error("Registration error:", serverMessage, error);
+
+      // Set the extracted message as the server error
+      setErrors((prev) => ({ ...prev, server: serverMessage }));
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -431,21 +425,23 @@ const RegisterForm = () => {
               </div>
             </div>
 
-            {/* File Uploads */}
+            {/* Right column: Profile Images */}
             <div className="space-y-6">
               <h3 className="text-lg font-medium text-gray-900 dark:text-white border-b border-gray-200 dark:border-gray-700 pb-2">
                 Profile Images
               </h3>
 
-              <input
-                type="file"
-                name="avatar"
-                accept="image/*"
-                onChange={(e) =>
-                  setFormData({ ...formData, avatar: e.target.files[0] })
-                }
+              {/* ✅ CORRECT AVATAR FIELD */}
+              <FileUploadField
+                id="avatar"
+                label="Avatar"
+                required={true} // Must be required as per user.controller.js
+                preview={previews.avatar}
+                error={errors.avatar}
+                onFileChange={(e) => handleFileChange(e, "avatar")} // Use the correct handler
+                onRemove={() => removeFile("avatar")}
               />
-
+              {/* ------------------------- */}
               <FileUploadField
                 id="coverImage"
                 label="Cover Image"
@@ -459,6 +455,11 @@ const RegisterForm = () => {
           </div>
 
           <div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-700">
+            {errors.server && (
+              <p className="mb-4 text-sm text-red-600 dark:text-red-400">
+                {errors.server}
+              </p>
+            )}
             <button
               onClick={handleSubmit}
               disabled={loading}
@@ -507,3 +508,14 @@ const RegisterForm = () => {
 };
 
 export default RegisterForm;
+//           <p>
+//             By creating an account, you agree to our Terms of Service and
+//             Privacy Policy.
+//           </p>
+//         </div>
+//       </div>
+//     </div>
+//   );
+// };
+
+// export default RegisterForm;
