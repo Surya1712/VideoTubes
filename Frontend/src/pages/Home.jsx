@@ -41,7 +41,7 @@ const Home = () => {
       if (videoList.length > 0) {
         console.log("🔍 First video structure:", videoList[0]);
         console.log("👤 First video owner:", videoList[0]?.owner);
-        console.log("📋 First video ownerDetails:", videoList[0]?.ownerDetails);
+        console.log("📋 First video ownerDetails:", videoList[0]?.owner);
       }
 
       setVideos(videoList);

@@ -51,27 +51,11 @@ export const authService = {
   // Register user
   register: async (userData) => {
     try {
-      const response = await apiClient.post("/users/register", userData, {
-        headers: {
-          "Content-Type": "multipart/form-data",
-        },
-      });
+      // Let axios/browser set the multipart/form-data boundary automatically
+      const response = await apiClient.post("/users/register", userData);
       console.log("✅ Registration successful:", response.data);
-
-      // // Store tokens if provided
-      // if (response.data.data?.accessToken) {
-      //   localStorage.setItem("accessToken", response.data.data.accessToken);
-      // }
-      // if (response.data.data?.refreshToken) {
-      //   localStorage.setItem("refreshToken", response.data.data.refreshToken);
-      // }
-
-      // // Store user data if provided
-      // if (response.data.data?.user) {
-      //   localStorage.setItem("user", JSON.stringify(response.data.data.user));
-      // }
-
-      return response.data;
+      // Return full axios response so callers can access response.data consistently
+      return response;
     } catch (error) {
       console.error(
         "❌ Registration failed:",

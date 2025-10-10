@@ -4,11 +4,11 @@ import {
   ThumbsUp,
   ThumbsDown,
   Share,
-  Download,
   MoreHorizontal,
   User,
   Bell,
 } from "lucide-react";
+import AddToPlaylistMenu from "../components/playlist/AddToPlaylistMenu.jsx";
 import videoService from "../services/video.service.js";
 import { commentService } from "../services/comment.service.js";
 import { subscriptionService } from "../services/subscription.service.js";
@@ -20,20 +20,35 @@ import toast from "react-hot-toast";
 const Watch = () => {
   const { id } = useParams();
   const { user } = useAuth();
+
+  // Video state
   const [video, setVideo] = useState(null);
-  const [comments, setComments] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [newComment, setNewComment] = useState("");
   const [isSubscribed, setIsSubscribed] = useState(false);
-  const [commenting, setCommenting] = useState(false);
   const [liking, setLiking] = useState(false);
+
+  // Comments state
+  const [comments, setComments] = useState([]);
+  const [newComment, setNewComment] = useState("");
+  const [commenting, setCommenting] = useState(false);
+  const [commentRefreshKey, setCommentRefreshKey] = useState(0);
+
+  // Reply state
+  const [replyingTo, setReplyingTo] = useState(null);
+  const [replyContent, setReplyContent] = useState("");
+  const [isReplying, setIsReplying] = useState(false);
 
   useEffect(() => {
     if (id) {
       fetchVideo();
-      fetchComments();
     }
   }, [id]);
+
+  useEffect(() => {
+    if (id) {
+      fetchComments();
+    }
+  }, [id, commentRefreshKey]);
 
   const fetchVideo = async () => {
     try {
@@ -57,14 +72,29 @@ const Watch = () => {
     try {
       if (!id) return;
 
-      console.log("Fetching comments for video:", id);
-      const commentsData = await commentService.getVideoComments(id);
-      console.log("Fetched comments:", commentsData);
+      const response = await commentService.getVideoComments(id);
+      console.log("Comments API Response", response);
 
-      setComments(Array.isArray(commentsData) ? commentsData : []);
+      let commentsArray = [];
+
+      // Handle different API response structures
+      if (response && Array.isArray(response.docs)) {
+        commentsArray = response.docs;
+      } else if (
+        response &&
+        response.data &&
+        Array.isArray(response.data.docs)
+      ) {
+        commentsArray = response.data.docs;
+      } else if (Array.isArray(response)) {
+        commentsArray = response;
+      } else if (response && Array.isArray(response.data)) {
+        commentsArray = response.data;
+      }
+
+      setComments(commentsArray);
     } catch (error) {
       console.error("Failed to load comments:", error);
-      // Don't show error toast for comments as it's not critical
     }
   };
 
@@ -138,24 +168,22 @@ const Watch = () => {
     }
   };
 
+  const handleCommentAdded = () => {
+    setCommentRefreshKey((prev) => prev + 1);
+  };
+
   const handleCommentSubmit = async (e) => {
     e.preventDefault();
     if (!user || !video || !newComment.trim()) return;
 
     try {
       setCommenting(true);
-      console.log("Adding comment to video:", video._id);
 
-      const comment = await commentService.addComment(
-        video._id,
-        newComment.trim()
-      );
-      console.log("Comment added:", comment);
+      await commentService.addComment(video._id, newComment.trim());
 
-      // Add new comment to the beginning of the list
-      setComments((prev) => [comment, ...prev]);
       setNewComment("");
       toast.success("Comment posted!");
+      handleCommentAdded();
     } catch (error) {
       console.error("Error posting comment:", error);
       toast.error(error.message || "Failed to post comment");
@@ -164,7 +192,75 @@ const Watch = () => {
     }
   };
 
-  // Helper function to get image/video URL
+  // IMPROVED: Comment like toggle with proper error handling
+  const handleToggleCommentLike = async (commentId, isLiked, currentLikes) => {
+    if (!user) {
+      toast.error("Please sign in to like comments");
+      return;
+    }
+
+    // Optimistic update with safety check
+    setComments((prevComments) =>
+      (prevComments || []).map((c) => {
+        if (c._id === commentId) {
+          return {
+            ...c,
+            isLiked: !isLiked,
+            likesCount: (c.likesCount || 0) + (isLiked ? -1 : 1),
+          };
+        }
+        return c;
+      })
+    );
+
+    try {
+      await commentService.toggleCommentLike(commentId);
+      toast.success(isLiked ? "Like removed" : "Comment liked!");
+    } catch (error) {
+      // Rollback on error with safety check
+      setComments((prevComments) =>
+        (prevComments || []).map((c) => {
+          if (c._id === commentId) {
+            return {
+              ...c,
+              isLiked: isLiked,
+              likesCount: currentLikes,
+            };
+          }
+          return c;
+        })
+      );
+      console.error("Error toggling comment like:", error);
+      toast.error(error.message || "Failed to like comment");
+    }
+  };
+
+  // IMPROVED: Reply submit functionality
+  const handleReplySubmit = async (e, parentCommentId) => {
+    e.preventDefault();
+    if (!user || !replyContent.trim()) return;
+
+    try {
+      setIsReplying(true);
+
+      await commentService.addComment(
+        video._id,
+        replyContent.trim(),
+        parentCommentId
+      );
+
+      setReplyContent("");
+      setReplyingTo(null);
+      toast.success("Reply posted!");
+      handleCommentAdded();
+    } catch (error) {
+      console.error("Error posting reply:", error);
+      toast.error(error.message || "Failed to post reply");
+    } finally {
+      setIsReplying(false);
+    }
+  };
+
   const getMediaUrl = (mediaField) => {
     if (typeof mediaField === "string") {
       return mediaField;
@@ -245,7 +341,7 @@ const Watch = () => {
                 <span>{formatTimeAgo(video.createdAt)}</span>
               </div>
 
-              <div className="flex items-center space-x-2">
+              <div className="flex items-center space-x-4">
                 <button
                   onClick={handleLike}
                   disabled={liking || !user}
@@ -264,13 +360,24 @@ const Watch = () => {
                   <span>{video.dislikes || 0}</span>
                 </button>
 
-                <button className="flex items-center space-x-1 px-4 py-2 rounded-full border bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
-                  <Share className="w-4 h-4" />
-                  <span>Share</span>
+                <button
+                  className="flex items-center p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors text-gray-600 dark:text-gray-400"
+                  title="Share"
+                >
+                  <Share className="w-5 h-5 mr-1" />
+                  <span className="text-sm font-medium hidden sm:inline">
+                    Share
+                  </span>
                 </button>
 
-                <button className="p-2 rounded-full border bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
-                  <MoreHorizontal className="w-4 h-4" />
+                {/* NEW COMPONENT: Add to Playlist */}
+                <AddToPlaylistMenu videoId={id} />
+
+                <button
+                  className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors text-gray-600 dark:text-gray-400"
+                  title="More Actions"
+                >
+                  <MoreHorizontal className="w-5 h-5" />
                 </button>
               </div>
             </div>
@@ -458,14 +565,77 @@ const Watch = () => {
                         {comment.content}
                       </p>
                       <div className="flex items-center space-x-4 mt-2">
-                        <button className="flex items-center space-x-1 text-xs text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200">
-                          <ThumbsUp className="w-3 h-3" />
-                          <span>{comment.likes || 0}</span>
+                        {/* Comment Like Button */}
+                        <button
+                          onClick={() =>
+                            handleToggleCommentLike(
+                              comment._id,
+                              comment.isLiked,
+                              comment.likesCount
+                            )
+                          }
+                          className={`flex items-center space-x-1 text-xs transition-colors disabled:opacity-50 ${
+                            comment.isLiked
+                              ? "text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300"
+                              : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+                          }`}
+                          disabled={!user}
+                        >
+                          <ThumbsUp
+                            className="w-3 h-3"
+                            fill={comment.isLiked ? "currentColor" : "none"}
+                          />
+                          <span>{comment.likesCount || 0}</span>
                         </button>
-                        <button className="text-xs text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200">
-                          Reply
-                        </button>
+
+                        {/* Reply Button */}
+                        {user && (
+                          <button
+                            onClick={() => setReplyingTo(comment._id)}
+                            className="text-xs text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+                          >
+                            Reply
+                          </button>
+                        )}
                       </div>
+
+                      {/* Reply Form */}
+                      {replyingTo === comment._id && user && (
+                        <form
+                          onSubmit={(e) => handleReplySubmit(e, comment._id)}
+                          className="mt-3 ml-1"
+                        >
+                          <textarea
+                            value={replyContent}
+                            onChange={(e) => setReplyContent(e.target.value)}
+                            placeholder={`Replying to ${
+                              comment.owner?.username || "user"
+                            }...`}
+                            rows="2"
+                            className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:border-blue-500 resize-none text-sm"
+                            disabled={isReplying}
+                          />
+                          <div className="flex justify-end space-x-2 mt-2">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setReplyingTo(null);
+                                setReplyContent("");
+                              }}
+                              className="px-3 py-1 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              type="submit"
+                              disabled={!replyContent.trim() || isReplying}
+                              className="px-3 py-1 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                            >
+                              {isReplying ? "Sending..." : "Post Reply"}
+                            </button>
+                          </div>
+                        </form>
+                      )}
                     </div>
                   </div>
                 ))

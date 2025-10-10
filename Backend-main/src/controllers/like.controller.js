@@ -4,96 +4,165 @@ import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 
-//toggle like on video
+/**
+ * @desc Toggles like status for a video
+ * @route POST /api/v1/likes/toggle/v/:videoId
+ */
 const toggleVideoLike = asyncHandler(async (req, res) => {
   const { videoId } = req.params;
+  const userId = req.user?._id; // Current authenticated user
 
   if (!isValidObjectId(videoId)) {
-    throw new ApiError(400, "Invalid videoId");
+    throw new ApiError(400, "Invalid video ID");
   }
 
-  const existingLike = await Like.findOne({
-    likedBy: req.user?._id,
-    video: videoId,
-  });
-
-  if (existingLike) {
-    await Like.findByIdAndDelete(existingLike._id);
-    return res.status(200).json(new ApiResponse(200, { isLiked: false }));
+  // Safety check: ensure user is authenticated
+  if (!userId) {
+    throw new ApiError(401, "User not authenticated");
   }
 
-  await Like.create({
-    likedBy: req.user?._id,
+  const likePayload = {
     video: videoId,
-  });
+    likedBy: userId,
+  };
 
-  return res.status(200).json(new ApiResponse(200, { isLiked: true }));
+  // Use updateOne with upsert for atomic operation (optional, but robust)
+  const likedAlready = await Like.findOne(likePayload);
+
+  let isLiked = false;
+  let message = "";
+
+  if (likedAlready) {
+    // Unlike: Delete the existing like document
+    await Like.findByIdAndDelete(likedAlready._id);
+    isLiked = false;
+    message = "Video unlinked successfully";
+  } else {
+    // Like: Create a new like document
+    await Like.create(likePayload);
+    isLiked = true;
+    message = "Video liked successfully";
+  }
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, { videoId, isLiked }, message));
 });
 
-//toggle like on comment
+// ------------------------------------------------------------------
+
+/**
+ * @desc Toggles like status for a comment
+ * @route POST /api/v1/likes/toggle/c/:commentId
+ */
 const toggleCommentLike = asyncHandler(async (req, res) => {
   const { commentId } = req.params;
+  const userId = req.user?._id;
 
   if (!isValidObjectId(commentId)) {
-    throw new ApiError(400, "Invalid commentId");
+    throw new ApiError(400, "Invalid comment ID");
   }
 
-  const existingLike = await Like.findOne({
-    likedBy: req.user?._id,
-    comment: commentId,
-  });
-
-  if (existingLike) {
-    await Like.findByIdAndDelete(existingLike._id);
-
-    return res.status(200).json(new ApiResponse(200, { isLiked: false }));
+  if (!userId) {
+    throw new ApiError(401, "User not authenticated");
   }
 
-  await Like.create({
-    likedBy: req.user?._id,
+  const likePayload = {
     comment: commentId,
-  });
+    likedBy: userId,
+  };
 
-  return res.status(200).json(new ApiResponse(200, { isLiked: false }));
+  const likedAlready = await Like.findOne(likePayload);
+
+  let isLiked = false;
+  let message = "";
+
+  if (likedAlready) {
+    // Unlike
+    await Like.findByIdAndDelete(likedAlready._id);
+    isLiked = false;
+    message = "Comment unlinked successfully";
+  } else {
+    // Like
+    await Like.create(likePayload);
+    isLiked = true;
+    message = "Comment liked successfully";
+  }
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, { commentId, isLiked }, message));
 });
 
-// toggle like on tweet
+// ------------------------------------------------------------------
+
+/**
+ * @desc Toggles like status for a tweet
+ * @route POST /api/v1/likes/toggle/t/:tweetId
+ */
 const toggleTweetLike = asyncHandler(async (req, res) => {
   const { tweetId } = req.params;
+  const userId = req.user?._id;
 
   if (!isValidObjectId(tweetId)) {
-    throw new ApiError(400, "Invalid TweetId");
+    throw new ApiError(400, "Invalid tweet ID");
   }
 
-  const existingLike = await Like.findOne({
-    likedBy: req.user?._id,
-    tweet: tweetId,
-  });
-
-  if (existingLike) {
-    await Like.findByIdAndDelete(existingLike._id);
-
-    return res.status(200).json(new ApiResponse(200, { isLiked: false }));
+  if (!userId) {
+    throw new ApiError(401, "User not authenticated");
   }
 
-  await Like.create({
-    likedBy: req.user?._id,
+  const likePayload = {
     tweet: tweetId,
-  });
+    likedBy: userId,
+  };
 
-  return res.status(200).json(new ApiResponse(200, { isLiked: true }));
+  const likedAlready = await Like.findOne(likePayload);
+
+  let isLiked = false;
+  let message = "";
+
+  if (likedAlready) {
+    // Unlike
+    await Like.findByIdAndDelete(likedAlready._id);
+    isLiked = false;
+    message = "Tweet unlinked successfully";
+  } else {
+    // Like
+    await Like.create(likePayload);
+    isLiked = true;
+    message = "Tweet liked successfully";
+  }
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, { tweetId, isLiked }, message));
 });
 
-// get all liked videos
+// ------------------------------------------------------------------
+
+/**
+ * @desc Gets all videos liked by the current authenticated user.
+ * @route GET /api/v1/likes/videos
+ */
 const getLikedVideos = asyncHandler(async (req, res) => {
-  const page = parseInt(req.query.page) || 1;
-  const limit = parseInt(req.query.limit) || 20;
+  const userId = req.user?._id;
+
+  if (!userId) {
+    // Should be caught by middleware, but a final check is safe
+    throw new ApiError(401, "User not authenticated");
+  }
 
   const likedVideosAggregate = await Like.aggregate([
     {
-      $match: { likedBy: new mongoose.Types.ObjectId(req.user?._id) },
+      // Stage 1: Match likes associated with the current user AND where 'video' field is present
+      $match: {
+        likedBy: new mongoose.Types.ObjectId(userId),
+        video: { $exists: true }, // Ensure we only get video likes
+      },
     },
     {
+      // Stage 2: Join with the 'videos' collection
       $lookup: {
         from: "videos",
         localField: "video",
@@ -101,6 +170,7 @@ const getLikedVideos = asyncHandler(async (req, res) => {
         as: "likedVideo",
         pipeline: [
           {
+            // Sub-Stage 1: Join with 'users' to get video owner details
             $lookup: {
               from: "users",
               localField: "owner",
@@ -109,21 +179,23 @@ const getLikedVideos = asyncHandler(async (req, res) => {
               pipeline: [
                 {
                   $project: {
-                    _id: 1,
                     username: 1,
                     fullName: 1,
-                    "avatar.url": 1,
+                    avatar: "$avatar.url",
                   },
                 },
               ],
             },
           },
-          { $unwind: "$ownerDetails" },
           {
+            // Sub-Stage 2: Deconstruct the single element ownerDetails array
+            $unwind: "$ownerDetails",
+          },
+          {
+            // Sub-Stage 3: Project the video fields
             $project: {
-              _id: 1,
-              "videoFile.url": 1,
-              "thumbnail.url": 1,
+              videoFile: "$videoFile.url",
+              thumbnail: "$thumbnail.url",
               owner: 1,
               title: 1,
               description: 1,
@@ -137,21 +209,34 @@ const getLikedVideos = asyncHandler(async (req, res) => {
         ],
       },
     },
-    { $unwind: "$likedVideo" },
-    { $sort: { createdAt: -1 } },
-    { $skip: (page - 1) * limit },
-    { $limit: limit },
-    { $project: { _id: 0, likedVideo: 1 } },
+    {
+      // Stage 3: Deconstruct the single element likedVideo array
+      $unwind: "$likedVideo",
+    },
+    {
+      // Stage 4: Sort by the creation time of the *Like* document (most recently liked first)
+      $sort: {
+        createdAt: -1,
+      },
+    },
+    {
+      // Stage 5: Final projection to structure the response
+      $project: {
+        _id: 0,
+        likedVideo: 1,
+      },
+    },
   ]);
+
   return res
     .status(200)
     .json(
       new ApiResponse(
         200,
         likedVideosAggregate,
-        "liked videos fetched successfully"
+        "Liked videos fetched successfully"
       )
     );
 });
 
-export { toggleCommentLike, toggleTweetLike, toggleVideoLike, getLikedVideos };
+export { toggleVideoLike, toggleCommentLike, toggleTweetLike, getLikedVideos };

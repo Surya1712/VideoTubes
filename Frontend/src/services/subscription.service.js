@@ -1,18 +1,15 @@
-import api from "./api";
+import apiClient from "./api.js";
 
 export const subscriptionService = {
-  async toggleSubscription(channelId) {
-    const response = await api.post(`/subscriptions/c/${channelId}`);
-    return response.data;
+  getUserSubscriptionStatus: async (channelId) => {
+    const response = await apiClient.get(
+      `/subscriptions/c/${channelId}/status`
+    );
+    return response.data; // { subscribed: true/false }
   },
 
-  async getUserChannelSubscribers(channelId) {
-    const response = await api.get(`/subscriptions/c/${channelId}`);
-    return response.data.data;
-  },
-
-  async getSubscribedChannels(subscriberId) {
-    const response = await api.get(`/subscriptions/u/${subscriberId}`);
-    return response.data.data;
+  toggleSubscription: async (channelId) => {
+    const response = await apiClient.post(`/subscriptions/c/${channelId}`);
+    return response.data; // { subscribed: true, message }
   },
 };

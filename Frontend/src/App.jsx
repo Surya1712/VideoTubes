@@ -11,9 +11,11 @@ import History from "./pages/History.jsx";
 import Upload from "./pages/upload.jsx";
 import ManageVideos from "./pages/manageVideos.jsx";
 import EditVideo from "./pages/editVideo.jsx";
+import NotFound from "./pages/NotFound.jsx";
 import LoginForm from "./components/auth/LoginForm.jsx";
 import RegisterForm from "./components/auth/RegisterForm.jsx";
-import NotFound from "./pages/NotFound.jsx";
+import PlaylistsPage from "./pages/PlaylistsPage.jsx";
+import PlaylistDetailsPage from "./pages/PlaylistDetailsPage.jsx";
 
 function App() {
   return (
@@ -36,6 +38,11 @@ function App() {
                 <Route path="manage-video" element={<ManageVideos />} />
                 <Route path="your-videos" element={<ManageVideos />} />
                 <Route path="edit-video/:id" element={<EditVideo />} />
+                <Route path="playlists" element={<PlaylistsPage />} />
+                <Route
+                  path="playlists/:playlistId"
+                  element={<PlaylistDetailsPage />}
+                />
                 <Route path="*" element={<NotFound />} />
               </Route>
             </Routes>

@@ -11,6 +11,7 @@ import {
   Settings,
   HelpCircle,
   Upload,
+  ListVideo,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 
@@ -35,6 +36,7 @@ const Sidebar = ({ isOpen, onClose }) => {
         { icon: PlaySquare, label: "Your Videos", path: "/manage-videos" },
         { icon: Clock, label: "Watch Later", path: "/watch-later" },
         { icon: ThumbsUp, label: "Liked Videos", path: "/liked-videos" },
+        { icon: ListVideo, label: "Playlists", path: "/playlists" },
       ]
     : [];
 

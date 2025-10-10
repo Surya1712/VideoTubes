@@ -5,6 +5,7 @@ import {
   formatViews,
   formatDuration,
 } from "../../utils/formatTime";
+import AddToPlaylistMenu from "../playlist/AddToPlaylistMenu.jsx";
 import { User, Eye, Clock } from "lucide-react";
 
 const VideoCard = ({ video }) => {
@@ -145,6 +146,10 @@ const VideoCard = ({ video }) => {
               {formatViews(subscriberCount)} subscribers
             </div>
           )}
+        </div>
+        {/* NEW UI: More Actions/Playlist Button */}
+        <div className="flex-shrink-0 relative">
+          <AddToPlaylistMenu videoId={video._id} />
         </div>
       </div>
     </div>

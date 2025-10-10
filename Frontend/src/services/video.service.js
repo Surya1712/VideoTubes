@@ -71,7 +71,7 @@ apiClient.interceptors.request.use(
       "API Request:",
       config.method?.toUpperCase(),
       config.url,
-      config.data instanceof FormData ? "[FormData]" : config.data
+      config.data instanceof FormData ? "[FormData]" : config.data ?? null
     );
 
     return config;
@@ -287,33 +287,23 @@ const videoService = {
   },
 
   // Get user's videos (for dashboard/manage videos)
-  getUserVideos: async (userId, params = {}) => {
+  getUserVideos: async () => {
     try {
-      console.log(
-        "Fetching user videos for userId:",
-        userId,
-        "with params:",
-        params
-      );
+      console.log("Fetching logged-in user's videos...");
 
       // If userId is provided, use the general videos endpoint with userId filter
       // Otherwise use the user-specific endpoint (requires auth)
-      const endpoint = userId ? `/videos` : `/videos/user`;
-      const requestParams = userId ? { ...params, userId } : params;
-
-      const response = await apiClient.get(endpoint, { params: requestParams });
+      const response = await apiClient.get("/videos/user-videos");
 
       // Handle paginated response
       let videos = [];
-      if (response.data?.data?.docs) {
-        videos = response.data.data.docs;
-      } else if (Array.isArray(response.data?.data)) {
+      if (Array.isArray(response.data?.data)) {
         videos = response.data.data;
       } else if (Array.isArray(response.data)) {
         videos = response.data;
       }
 
-      console.log(`✅ Fetched ${videos.length} user videos`);
+      console.log(`✅ Fetched ${videos.length} videos for the user`);
       return videos;
     } catch (error) {
       handleApiError(error, "Failed to fetch user videos");
@@ -351,7 +341,7 @@ const videoService = {
   getWatchHistory: async () => {
     try {
       console.log("Fetching watch history...");
-      const response = await apiClient.get("/users/watch-history");
+      const response = await apiClient.get("/users/history");
 
       let videos = [];
       if (Array.isArray(response.data?.data)) {

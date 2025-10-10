@@ -23,10 +23,28 @@ export const AuthProvider = ({ children }) => {
         const savedUser = localStorage.getItem("user");
 
         if (savedUser) {
+          // Restore user immediately so UI remains authenticated while we verify token
+          try {
+            setUser(JSON.parse(savedUser));
+          } catch (e) {
+            // ignore parse errors
+            setUser(null);
+          }
           try {
             // Verify token by fetching current user
             const response = await authService.getCurrentUser();
-            setUser(response.data.user);
+            // response may be axios response or response.data shape
+            const payload = response?.data ?? response;
+            const currentUser =
+              payload?.data?.user ?? payload?.user ?? payload?.data ?? null;
+            if (currentUser) {
+              setUser(currentUser);
+              localStorage.setItem("user", JSON.stringify(currentUser));
+            } else {
+              // fallback: if payload is the user object itself
+              setUser(payload);
+              localStorage.setItem("user", JSON.stringify(payload));
+            }
           } catch (error) {
             // If token invalid, clear storage
             localStorage.removeItem("accessToken");
@@ -90,29 +108,28 @@ export const AuthProvider = ({ children }) => {
   const register = async (userData) => {
     try {
       setLoading(true);
-      const backendPayLoad = await authService.register(userData);
+      // Expect authService.register to return full axios response
+      const response = await authService.register(userData);
+      const payload = response?.data ?? response;
+      // Try common shapes: response.data.data (with user/accessToken) or response.data (user) etc.
+      const userObj =
+        payload?.data?.user ?? payload?.data ?? payload?.user ?? payload;
+      const accessToken =
+        payload?.data?.accessToken ?? payload?.accessToken ?? null;
+      const refreshToken =
+        payload?.data?.refreshToken ?? payload?.refreshToken ?? null;
 
-      // Backend returns: { statusCode: 201, data: { user, accessToken, refreshToken }, message: "..." }
-
-      // console.log(("full register response: ", response.data));
-      console.log(("full register response: ", backendPayLoad));
-
-      // const userdataRes = response.data?.data?.user;
-      // const accessToken = response.data?.data?.accessToken;
-      // const refreshToken = response.data?.data?.refreshToken;
-      const userdataRes = backendPayLoad?.data;
-      // ✅ Flexible parsing (backend may return data.user OR just data)
-
-      if (userdataRes) {
-        setUser(userdataRes);
-        localStorage.setItem("user", JSON.stringify(userdataRes));
-
-        console.log("✅ User registered successfully:", userdataRes);
+      if (userObj) {
+        setUser(userObj);
+        localStorage.setItem("user", JSON.stringify(userObj));
+        if (accessToken) localStorage.setItem("accessToken", accessToken);
+        if (refreshToken) localStorage.setItem("refreshToken", refreshToken);
+        console.log("✅ User registered successfully:", userObj);
+        return response;
       } else {
         console.warn("⚠️ No user object returned from server");
         throw new Error("Invalid response from server");
       }
-      return backendPayLoad;
     } catch (error) {
       console.error("Registration error in context:", error);
       throw error;
