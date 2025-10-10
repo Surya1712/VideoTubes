@@ -95,12 +95,3 @@ A YouTube-like fullstack application (Frontend + Backend) for video sharing: upl
 - Use Postman or curl to exercise endpoints first (register/login, upload media).
 - Ensure Cloudinary credentials are correct for media uploads.
 
-## Contributing
-
-- Create feature branches, keep controller/service responsibilities separated, add unit/integration tests where possible.
-
-If you want, I can:
-
-- Add a sample .env.example for frontend/backend.
-- Add api.js interceptor suggestions (set Authorization header from localStorage and handle 401 → refresh).
-- Create a quick troubleshooting checklist for the auth refresh flow.
