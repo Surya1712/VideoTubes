@@ -1,7 +1,13 @@
 import axios from "axios";
 
+// Prefer the more explicit URI env var, fall back to older VITE_API_BASE_URL and finally localhost
 const BASE_URL =
-  import.meta?.env?.VITE_API_BASE_URL ?? "http://localhost:8000/api/v1";
+  import.meta?.env?.VITE_APP_API_URI ||
+  import.meta?.env?.VITE_API_BASE_URL ||
+  "http://localhost:8000/api/v1";
+
+// Helpful debug output when running locally to spot misconfigured env vars
+console.log("[api] BASE_URL:", BASE_URL);
 
 const apiClient = axios.create({
   baseURL: BASE_URL,
