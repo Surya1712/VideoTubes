@@ -200,17 +200,19 @@ const ManageVideos = () => {
               key={video._id}
               className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 hover:shadow-md transition-shadow"
             >
-              <div className="flex items-center space-x-4">
-                {/* Thumbnail */}
-                <div className="relative flex-shrink-0">
-                  <img
-                    src={video.thumbnail?.url || video.thumbnail}
-                    alt={video.title}
-                    className="w-32 h-18 object-cover rounded-lg"
-                    onError={(e) => {
-                      e.target.src = "/placeholder-thumbnail.jpg"; // Fallback image
-                    }}
-                  />
+              <div className="flex flex-col sm:flex-row items-start sm:items-center space-x-0 sm:space-x-4">
+                {/* Thumbnail: responsive width and preserved aspect ratio */}
+                <div className="relative flex-shrink-0 w-full sm:w-32 md:w-40 lg:w-48">
+                  <div className="aspect-video w-full rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-800">
+                    <img
+                      src={video.thumbnail?.url || video.thumbnail}
+                      alt={video.title}
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        e.target.src = "/placeholder-thumbnail.jpg"; // Fallback image
+                      }}
+                    />
+                  </div>
                   {video.duration && (
                     <div className="absolute bottom-1 right-1 bg-black bg-opacity-80 text-white text-xs px-1 py-0.5 rounded">
                       {formatDuration(video.duration)}

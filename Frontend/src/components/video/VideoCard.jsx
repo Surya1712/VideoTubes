@@ -116,19 +116,19 @@ const VideoCard = ({ video }) => {
         {/* Video Details */}
         <div className="flex-1 min-w-0">
           <Link to={`/watch/${video._id}`}>
-            <h3 className="text-sm font-semibold text-gray-900 dark:text-white line-clamp-2 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+            <h3 className="text-sm md:text-base lg:text-lg font-semibold text-gray-900 dark:text-white line-clamp-2 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
               {videoTitle}
             </h3>
           </Link>
 
           <Link
             to={`/channel/${ownerUsername}`}
-            className="block mt-1 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
+            className="block mt-1 text-xs sm:text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
           >
             {ownerName}
           </Link>
 
-          <div className="flex items-center mt-1 text-sm text-gray-600 dark:text-gray-400 space-x-1">
+          <div className="flex flex-wrap items-center mt-1 text-xs sm:text-sm text-gray-600 dark:text-gray-400 space-x-1">
             <div className="flex items-center space-x-1">
               <Eye className="w-3 h-3" />
               <span>{formatViews(videoViews)} views</span>

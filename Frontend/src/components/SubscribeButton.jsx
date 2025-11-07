@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { subscriptionService } from "../services/subscriptionService.js";
+import { subscriptionService } from "../services/subscription.service.js";
 import { useAuth } from "../context/AuthContext.jsx";
 import toast from "react-hot-toast";
 
@@ -19,22 +19,58 @@ export default function SubscribeButton({ channelId }) {
       }
       setLoading(true);
       try {
+        if (!channelId) {
+          console.warn("SubscribeButton: no channelId provided");
+          setSubscribed(false);
+          return;
+        }
+
         const response = await subscriptionService.getUserSubscriptionStatus(
           channelId
         );
 
-        const subscribedStatus = response?.data?.data?.subscribed;
+        // Normalize response shapes. Backend may return:
+        // - { subscribed: true }
+        // - { data: { subscribed: true } }
+        // - { data: { data: { subscribed: true } } }
+        // - axios response shapes in some callers
+        let subscribedStatus = false;
+        if (response === true || response === false)
+          subscribedStatus = response;
+        else if (response && typeof response.subscribed === "boolean")
+          subscribedStatus = response.subscribed;
+        else if (
+          response &&
+          response.data &&
+          typeof response.data.subscribed === "boolean"
+        )
+          subscribedStatus = response.data.subscribed;
+        else if (
+          response &&
+          response.data &&
+          response.data.data &&
+          typeof response.data.data.subscribed === "boolean"
+        )
+          subscribedStatus = response.data.data.subscribed;
+
         console.log("fetched subscription status : ", subscribedStatus);
 
-        if (mounted && typeof subscribedStatus === "boolean") {
-          setSubscribed(subscribedStatus);
+        if (mounted) {
+          setSubscribed(Boolean(subscribedStatus));
         }
       } catch (err) {
+        // Provide clearer error to user and keep UI stable
         console.warn(
           "Failed to fetch subscription status (channel ID may be invalid, or API failed):",
           err
         );
         if (mounted) setSubscribed(false);
+        // Show friendly message for 4xx/5xx
+        if (err?.response?.status === 404) {
+          toast.error("Subscription status not found for this channel.");
+        } else if (err?.response?.status >= 400) {
+          toast.error(err.message || "Failed to fetch subscription status");
+        }
       }
     };
 
@@ -52,15 +88,28 @@ export default function SubscribeButton({ channelId }) {
 
     try {
       const response = await subscriptionService.toggleSubscription(channelId);
-      const newStatus = response?.data?.data?.subscribed;
+      // Normalize response shapes for toggle endpoint
+      // Backend returns ApiResponse wrapped object: { data: { subscribed: true } }
+      let newStatus = false;
+      if (response === true || response === false) newStatus = response;
+      else if (response && typeof response.subscribed === "boolean")
+        newStatus = response.subscribed;
+      else if (
+        response &&
+        response.data &&
+        typeof response.data.subscribed === "boolean"
+      )
+        newStatus = response.data.subscribed;
+      else if (
+        response &&
+        response.data &&
+        response.data.data &&
+        typeof response.data.data.subscribed === "boolean"
+      )
+        newStatus = response.data.data.subscribed;
 
-      if (typeof newStatus === "boolean") {
-        setSubscribed(newStatus);
-        const message = newStatus
-          ? "subscribed successfully!"
-          : "Unsubscribed.";
-        toast.success(message);
-      }
+      setSubscribed(Boolean(newStatus));
+      toast.success(newStatus ? "Subscribed!" : "Unsubscribed.");
     } catch (err) {
       console.error("Failed to toggle subscription:", err);
       toast.error(err.message || "Failed to change subscription status.");

@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Upload as UploadIcon, X, Play, Image } from "lucide-react";
+import { Upload as UploadIcon, X, Play, Image, Flashlight } from "lucide-react";
 import videoService from "../services/video.service";
 import { useAuth } from "../context/AuthContext";
 import toast from "react-hot-toast";
+import ProgressTracker from "../components/upload/ProgressTracker";
 
 const Upload = () => {
   const navigate = useNavigate();
@@ -17,7 +18,13 @@ const Upload = () => {
   const [thumbnail, setThumbnail] = useState(null);
   const [videoPreview, setVideoPreview] = useState("");
   const [thumbnailPreview, setThumbnailPreview] = useState("");
+
+  // Progress tracking states
   const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadSpeed, setUploadSpeed] = useState(0);
+  const [timeRemaining, setTimeRemaining] = useState(null);
+  const [isProcessing, setIsProcessing] = useState(false);
 
   // Redirect if not logged in
   useEffect(() => {
@@ -116,47 +123,75 @@ const Upload = () => {
     e.preventDefault();
 
     // Validation
-    if (!videoFile) {
-      toast.error("Please select a video file");
-      return;
-    }
+    if (!videoFile) return toast.error("Please select a video file");
+    if (!thumbnail) return toast.error("Please select a thumbnail");
+    if (!formData.title.trim()) return toast.error("Please enter a title");
 
-    if (!thumbnail) {
-      toast.error("Please select a thumbnail");
-      return;
-    }
-
-    if (!formData.title.trim()) {
-      toast.error("Please enter a title");
-      return;
-    }
-
-    setUploading(true);
+    const uploadData = new FormData();
+    uploadData.append("videoFile", videoFile);
+    uploadData.append("thumbnail", thumbnail);
+    uploadData.append("title", formData.title.trim());
+    uploadData.append("description", formData.description.trim());
+    uploadData.append("isPublished", formData.isPublished);
 
     try {
-      const uploadData = new FormData();
-      uploadData.append("videoFile", videoFile);
-      uploadData.append("thumbnail", thumbnail); // Fixed: should match backend expectation
-      uploadData.append("title", formData.title.trim());
-      uploadData.append("description", formData.description.trim());
-      uploadData.append("isPublished", formData.isPublished);
+      setUploading(true);
+      setUploadProgress(0);
+      setUploadSpeed(0);
+      setTimeRemaining(null);
+      setIsProcessing(false);
 
-      const response = await videoService.uploadVideo(uploadData);
+      let startTime = Date.now();
+      let lastLoaded = 0;
 
-      if (response && response._id) {
-        toast.success("Video uploaded successfully!");
-        navigate(`/watch/${response._id}`);
-      } else {
-        toast.success("Video uploaded successfully!");
-        navigate("/");
-      }
+      const response = await videoService.uploadVideo(
+        uploadData,
+        (percent, progressEvent) => {
+          const currentTime = Date.now();
+          const timeElapsed = (currentTime - startTime) / 1000; // seconds
+          const loadedBytes = progressEvent.loaded;
+          const totalBytes = progressEvent.total || videoFile.size;
+
+          // Calculate upload speed (MB/s)
+          const bytesSinceLast = loadedBytes - lastLoaded;
+          const speedMBps =
+            bytesSinceLast / 1024 / 1024 / (timeElapsed > 0 ? timeElapsed : 1);
+          setUploadSpeed(speedMBps.toFixed(2));
+
+          // Calculate ETA
+          const remainingBytes = totalBytes - loadedBytes;
+          const estimatedSeconds =
+            speedMBps > 0 ? remainingBytes / (speedMBps * 1024 * 1024) : 0;
+          setTimeRemaining(estimatedSeconds.toFixed(0));
+
+          // Update progress bar
+          const percentCompleted = Math.round((loadedBytes * 100) / totalBytes);
+          setUploadProgress(percentCompleted);
+
+          // when upload reaches 100%, switch to processing state
+          if (percentCompleted >= 100) {
+            setIsProcessing(true);
+          }
+
+          lastLoaded = loadedBytes;
+          startTime = currentTime;
+        }
+      );
+
+      // wait until backend finishing processing(cloudinary, upload, DB save)
+      setIsProcessing(false);
+
+      toast.success("✅ Video uploaded successfully!");
+      if (response && response._id) navigate(`/watch/${response._id}`);
+      else navigate("/");
     } catch (err) {
       console.error("Upload error:", err);
-      const errorMessage =
-        err.response?.data?.message || err.message || "Upload failed";
-      toast.error(errorMessage);
+      toast.error(err.message || "Upload failed");
     } finally {
       setUploading(false);
+      setUploadProgress(0);
+      setUploadSpeed(0);
+      setTimeRemaining(null);
     }
   };
 
@@ -281,6 +316,31 @@ const Upload = () => {
           )}
         </div>
 
+        {/* Upload Progress */}
+        {uploading && (
+          <div>
+            <ProgressTracker
+              progress={uploadProgress}
+              speed={uploadSpeed}
+              eta={timeRemaining}
+              label={
+                isProcessing
+                  ? "Finalizing upload...(Processing on server)"
+                  : "Uploading your video..."
+              }
+            />
+            {isProcessing && (
+              <div className="flex items-center mt-2 text-sm text-gray-500 dark:text-gray-400">
+                <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mr-2"></div>
+                <span>
+                  Video uploaded. Waiting for server to finish
+                  processing(Cloudinary)
+                </span>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Video Details Section */}
         <div className="space-y-4">
           <h2 className="text-lg font-semibold text-gray-700 dark:text-gray-300">
@@ -358,7 +418,9 @@ const Upload = () => {
             {uploading && (
               <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
             )}
-            <span>{uploading ? "Uploading..." : "Upload Video"}</span>
+            <span>
+              {uploading ? `Uploading... ${uploadProgress}%` : "Upload Video"}
+            </span>
           </button>
         </div>
       </form>

@@ -167,20 +167,20 @@ const videoService = {
   },
 
   // Upload video with progress tracking and better error handling
-  uploadVideo: async (formData, onProgress = null) => {
+  uploadVideo: async (formData, onProgress) => {
     try {
       console.log("Starting video upload...");
 
       // Validate FormData
       if (!(formData instanceof FormData)) {
-        throw new Error("Invalid form data");
+        throw new Error("Invalid form data - must FormData instance.");
       }
 
       // Log form data contents (for debugging)
       for (let [key, value] of formData.entries()) {
         console.log(
           `FormData: ${key}:`,
-          value instanceof File ? `File: ${value.name}` : value
+          value instanceof File ? `📁   ${value.name}` : value
         );
       }
 
@@ -189,12 +189,12 @@ const videoService = {
           "Content-Type": "multipart/form-data",
         },
         onUploadProgress: (progressEvent) => {
-          const percentCompleted = Math.round(
-            (progressEvent.loaded * 100) / progressEvent.total
-          );
-          console.log(`Upload progress: ${percentCompleted}%`);
-          if (onProgress) {
-            onProgress(percentCompleted);
+          if (progressEvent.total) {
+            const percentCompleted = Math.round(
+              (progressEvent.loaded * 100) / progressEvent.total
+            );
+            if (onProgress) onProgress(percentCompleted);
+            console.log(`⏫ Upload progress: ${percentCompleted}%`);
           }
         },
       });

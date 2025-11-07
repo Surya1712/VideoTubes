@@ -4,6 +4,7 @@ import {
   Search,
   Menu,
   Bell,
+  Plus,
   Video,
   User,
   Moon,
@@ -15,12 +16,15 @@ import {
 import { useAuth } from "../../context/AuthContext";
 import { useTheme } from "../../context/ThemeContext";
 import { Menu as HeadlessMenu } from "@headlessui/react";
+import CreateButton from "../common/CreateButton.jsx";
+import VideoUploadModal from "../video/videoUploadModel.jsx";
 
 const Header = ({ onMenuToggle }) => {
   const [searchQuery, setSearchQuery] = useState("");
   const { user, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
+  const [showModel, setShowModel] = useState(false);
 
   const handleSearch = (e) => {
     e.preventDefault();
@@ -86,14 +90,7 @@ const Header = ({ onMenuToggle }) => {
 
           {user ? (
             <>
-              <Link
-                to="/upload"
-                className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-                title="Upload video"
-              >
-                <Video className="w-5 h-5" />
-              </Link>
-
+              <CreateButton />
               <button className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
                 <Bell className="w-5 h-5" />
               </button>

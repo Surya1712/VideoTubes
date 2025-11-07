@@ -33,7 +33,7 @@ const Sidebar = ({ isOpen, onClose }) => {
           path: `/channel/${user.username}`,
         },
         { icon: History, label: "History", path: "/history" },
-        { icon: PlaySquare, label: "Your Videos", path: "/manage-videos" },
+        // { icon: PlaySquare, label: "Your Videos", path: "/manage-videos" },
         { icon: Clock, label: "Watch Later", path: "/watch-later" },
         { icon: ThumbsUp, label: "Liked Videos", path: "/liked-videos" },
         { icon: ListVideo, label: "Playlists", path: "/playlists" },
@@ -91,20 +91,7 @@ const Sidebar = ({ isOpen, onClose }) => {
             <>
               <hr className="border-gray-200 dark:border-gray-700 mx-3 mb-4" />
 
-              <div className="px-3 mb-4">
-                <Link
-                  to="/upload"
-                  onClick={onClose}
-                  className={`flex items-center space-x-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                    isActive("/upload")
-                      ? "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800"
-                      : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 border border-transparent hover:border-gray-200 dark:hover:border-gray-700"
-                  }`}
-                >
-                  <Upload className="w-5 h-5" />
-                  <span className="font-semibold">Upload Video</span>
-                </Link>
-              </div>
+              <div className="px-3 mb-4"></div>
 
               <hr className="border-gray-200 dark:border-gray-700 mx-3 mb-4" />
 

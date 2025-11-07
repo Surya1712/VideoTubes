@@ -1,46 +1,97 @@
 import React, { useEffect, useState } from "react";
-import apiClient from "../services/api.js";
-import VideoPlayer from "../components/VideoPlayer.jsx";
-import TweetComposer from "../components/TweetComposer.jsx";
+import { Link, useParams } from "react-router-dom";
+import {
+  Video,
+  BarChart2,
+  ListVideo,
+  Upload,
+  Eye,
+  EyeOff,
+  Film,
+} from "lucide-react";
+import videoService from "../services/video.service";
+import { formatTimeAgo, formatViews } from "../utils/formatTime";
+import { useAuth } from "../context/AuthContext";
 
-export default function Dashboard() {
+const Dashboard = () => {
+  const { username } = useParams();
+  const { user } = useAuth();
   const [videos, setVideos] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  const fetchVideos = async () => {
-    setLoading(true);
+  useEffect(() => {
+    if (user) fetchUserVideos();
+  }, [user]);
+
+  const fetchUserVideos = async () => {
     try {
-      // backend likely exposes /videos or /videos/feed - try /videos
-      const res = await apiClient.get("/videos");
-      // normalize: response.data.data or response.data
-      const payload = res.data?.data ?? res.data;
-      setVideos(Array.isArray(payload) ? payload : payload.videos ?? []);
-    } catch (e) {
-      console.error("Failed to load videos", e);
+      setLoading(true);
+      const userVideos = await videoService.getUserVideos();
+      setVideos(userVideos || []);
+    } catch (error) {
+      console.error("Error fetching dashboard videos: ", error);
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => {
-    fetchVideos();
-  }, []);
+  const totalVideos = videos.length;
+  const publishedVideos = videos.filter((v) => v.isPublished).length;
+  const draftVideos = totalVideos - publishedVideos;
 
   return (
-    <div className="space-y-6 p-4">
-      <div className="max-w-3xl mx-auto">
-        <TweetComposer onPosted={() => fetchVideos()} />
-      </div>
+    <div className="p-6">
+      <h1 className="text-2xl font-semibold mb-4">Create Dashboard</h1>
+      <p className="text-gray-500 mb-8">
+        Welcome back, {username.toLocaleUpperCase()}! Manage your channel here.
+      </p>
+      {/* Quick Actions */}
+      <div className="grid md:grid-cols-3 gap-6">
+        <Link
+          to="/upload"
+          className="p-6 bg-white dark:bg-gray-800 rounded-xl shadow hover:shadow-lg transition-all border dark:border-gray-700 flex flex-col items-center text-center"
+        >
+          <Upload className="w-10 h-10 mb-3 text-blue-600" />
+          <h3 className="text-lg font-semibold">Upload Video</h3>
+          <p className="text-gray-500 text-sm mt-2">
+            Share something new with your audience.
+          </p>
+        </Link>
+        <Link
+          to="/manage-videos"
+          className="p-6 bg-white dark:bg-gray-800 rounded-xl shadow hover:shadow-lg transition-all border dark:border-gray-700 flex flex-col items-center text-center"
+        >
+          <Video className="w-10 h-10 mb-3 text-purple-600" />
+          <h3 className="text-lg font-semibold">Manage Videos</h3>
+          <p className="text-gray-500 text-sm mt-2">
+            Edit, delete, or view your uploaded content.
+          </p>
+        </Link>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-5xl mx-auto">
-        {loading ? (
-          <div>Loading...</div>
-        ) : videos.length === 0 ? (
-          <div>No videos yet</div>
-        ) : (
-          videos.map((v) => <VideoPlayer key={v._id || v.id} video={v} />)
-        )}
+        <Link
+          to="/analytics"
+          className="p-6 bg-white dark:bg-gray-800 rounded-xl shadow hover:shadow-lg transition-all border dark:border-gray-700 flex flex-col items-center text-center"
+        >
+          <BarChart2 className="w-10 h-10 mb-3 text-green-600" />
+          <h3 className="text-lg font-semibold">Analytics</h3>
+          <p className="text-gray-500 text-sm mt-2">
+            See views, likes, and engagement performance.
+          </p>
+        </Link>
+
+        <Link
+          to="/playlists"
+          className="p-6 bg-white dark:bg-gray-800 rounded-xl shadow hover:shadow-lg transition-all border dark:border-gray-700 flex flex-col items-center text-center"
+        >
+          <ListVideo className="w-10 h-10 mb-3 text-pink-600" />
+          <h3 className="text-lg font-semibold">Playlists</h3>
+          <p className="text-gray-500 text-sm mt-2">
+            Organize your videos into playlists.
+          </p>
+        </Link>
       </div>
     </div>
   );
-}
+};
+
+export default Dashboard;
