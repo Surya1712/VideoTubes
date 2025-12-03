@@ -242,6 +242,11 @@ const updateVideo = asyncHandler(async (req, res) => {
     throw new ApiError(403, "You are not authorized to update this video");
   }
 
+  // ✅ Remove invalid text-based thumbnail (in case frontend sent a string)
+  if (req.body.thumbnail && typeof req.body.thumbnail === "string") {
+    delete req.body.thumbnail;
+  }
+
   const updateData = {};
 
   // Update title if provided
@@ -254,22 +259,32 @@ const updateVideo = asyncHandler(async (req, res) => {
     updateData.description = description.trim();
   }
 
-  // Update thumbnail if provided
+  // ✅ Handle new thumbnail (if uploaded)
   if (req.file?.path) {
-    const newThumbnail = await uploadOnCloudinary(req.file.path);
-    if (newThumbnail) {
-      // Delete old thumbnail
-      if (video.thumbnail?.public_id) {
-        await deleteOnCloudinary(video.thumbnail.public_id);
-      }
+    try {
+      const newThumbnail = await uploadOnCloudinary(req.file.path);
+      if (newThumbnail) {
+        // Delete old thumbnail if object with public_id
+        if (
+          video.thumbnail &&
+          typeof video.thumbnail === "object" &&
+          video.thumbnail.public_id
+        ) {
+          await deleteOnCloudinary(video.thumbnail.public_id);
+        }
 
-      updateData.thumbnail = {
-        url: newThumbnail.url,
-        public_id: newThumbnail.public_id,
-      };
+        updateData.thumbnail = {
+          url: newThumbnail.url,
+          public_id: newThumbnail.public_id,
+        };
+      }
+    } catch (error) {
+      console.error("Cloudinary upload failed:", error);
+      throw new ApiError(500, "Failed to upload new thumbnail");
     }
   }
 
+  // ✅ Update in DB
   const updatedVideo = await Video.findByIdAndUpdate(
     videoId,
     { $set: updateData },
