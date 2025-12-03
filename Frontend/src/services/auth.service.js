@@ -16,7 +16,54 @@ export const authService = {
       throw error;
     }
   },
+  /**
+   * Change password for logged in user.
+   * Expects oldPassword and newPassword.
+   * Backend route assumed: POST /users/change-password
+   */
+  changePassword: async (oldPassword, newPassword) => {
+    try {
+      const payload = { oldPassword, newPassword };
+      const response = await apiClient.post("/users/change-password", payload);
+      // return full axios response so callers have consistent shape
+      return response;
+    } catch (error) {
+      // normalize error message
+      const msg =
+        error.response?.data?.message ||
+        error.message ||
+        "Change password failed";
+      console.error(
+        "❌ changePassword failed:",
+        error.response?.data || error.message
+      );
+      throw new Error(msg);
+    }
+  },
 
+  /**
+   * Reset password using token (forgot password flow).
+   * Backend route assumed: POST /users/reset-password/:token
+   */
+  resetPassword: async (token, newPassword) => {
+    try {
+      // if backend expects token in body instead, adjust accordingly
+      const response = await apiClient.post(`/users/reset-password/${token}`, {
+        password: newPassword,
+      });
+      return response;
+    } catch (error) {
+      const msg =
+        error.response?.data?.message ||
+        error.message ||
+        "Reset password failed";
+      console.error(
+        "❌ resetPassword failed:",
+        error.response?.data || error.message
+      );
+      throw new Error(msg);
+    }
+  },
   // Login user
   login: async (email, password) => {
     try {

@@ -129,13 +129,13 @@ const Header = ({ onMenuToggle }) => {
                     <HeadlessMenu.Item>
                       {({ active }) => (
                         <Link
-                          to="/history"
+                          to="/change-password"
                           className={`flex items-center space-x-2 px-3 py-2 rounded text-sm ${
                             active ? "bg-gray-100 dark:bg-gray-700" : ""
                           }`}
                         >
                           <History className="w-4 h-4" />
-                          <span>History</span>
+                          <span>Change Password</span>
                         </Link>
                       )}
                     </HeadlessMenu.Item>

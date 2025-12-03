@@ -8,10 +8,13 @@ import {
   publishAVideo,
   togglePublishStatus,
   updateVideo,
+  getUserVideos,
 } from "../controllers/video.controller.js";
 
 const router = Router();
 // router.use(verifyJWT); // apply verifyJWT middleware to all routes in this file
+
+router.route("/user-videos").get(verifyJWT, getUserVideos); // user-specific endpoint requires auth
 
 router
   .route("/")

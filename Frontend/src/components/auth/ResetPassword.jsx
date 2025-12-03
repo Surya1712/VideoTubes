@@ -22,7 +22,7 @@ const ResetPassword = () => {
       setRedirecting(true);
       setCountdown(3);
     } catch (error) {
-      setMessage("❌ " + (err.message || "Password reset failed"));
+      setMessage("❌ " + (error.message || "Password reset failed"));
     } finally {
       setLoading(false);
     }
